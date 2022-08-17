@@ -1,4 +1,6 @@
 """Support for functionality to have conversations with Home Assistant."""
+from __future__ import annotations
+
 from http import HTTPStatus
 import logging
 import re
@@ -48,7 +50,7 @@ async_register = bind_hass(async_register)
 
 @core.callback
 @bind_hass
-def async_set_agent(hass: core.HomeAssistant, agent: AbstractConversationAgent):
+def async_set_agent(hass: core.HomeAssistant, agent: AbstractConversationAgent | None):
     """Set the agent to handle the conversations."""
     hass.data[DATA_AGENT] = agent
 
@@ -71,17 +73,17 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         DOMAIN, SERVICE_PROCESS, handle_service, schema=SERVICE_PROCESS_SCHEMA
     )
     hass.http.register_view(ConversationProcessView())
-    hass.components.websocket_api.async_register_command(websocket_process)
-    hass.components.websocket_api.async_register_command(websocket_get_agent_info)
-    hass.components.websocket_api.async_register_command(websocket_set_onboarding)
+    websocket_api.async_register_command(hass, websocket_process)
+    websocket_api.async_register_command(hass, websocket_get_agent_info)
+    websocket_api.async_register_command(hass, websocket_set_onboarding)
 
     return True
 
 
-@websocket_api.async_response
 @websocket_api.websocket_command(
     {"type": "conversation/process", "text": str, vol.Optional("conversation_id"): str}
 )
+@websocket_api.async_response
 async def websocket_process(hass, connection, msg):
     """Process text."""
     connection.send_result(
@@ -92,8 +94,8 @@ async def websocket_process(hass, connection, msg):
     )
 
 
-@websocket_api.async_response
 @websocket_api.websocket_command({"type": "conversation/agent/info"})
+@websocket_api.async_response
 async def websocket_get_agent_info(hass, connection, msg):
     """Do we need onboarding."""
     agent = await _get_agent(hass)
@@ -107,8 +109,8 @@ async def websocket_get_agent_info(hass, connection, msg):
     )
 
 
-@websocket_api.async_response
 @websocket_api.websocket_command({"type": "conversation/onboarding/set", "shown": bool})
+@websocket_api.async_response
 async def websocket_set_onboarding(hass, connection, msg):
     """Set onboarding status."""
     agent = await _get_agent(hass)

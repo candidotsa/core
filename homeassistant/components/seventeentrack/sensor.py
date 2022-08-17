@@ -8,6 +8,7 @@ from py17track import Client as SeventeenTrackClient
 from py17track.errors import SeventeenTrackError
 import voluptuous as vol
 
+from homeassistant.components import persistent_notification
 from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity
 from homeassistant.const import (
     ATTR_ATTRIBUTION,
@@ -18,7 +19,11 @@ from homeassistant.const import (
     CONF_USERNAME,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import aiohttp_client, config_validation as cv
+from homeassistant.helpers import (
+    aiohttp_client,
+    config_validation as cv,
+    entity_registry as er,
+)
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
@@ -149,8 +154,9 @@ class SeventeenTrackSummarySensor(SensorEntity):
                 }
             )
 
-        if package_data:
-            self._attr_extra_state_attributes[ATTR_PACKAGES] = package_data
+        self._attr_extra_state_attributes[ATTR_PACKAGES] = (
+            package_data if package_data else None
+        )
 
         self._state = self._data.summary.get(self._status)
 
@@ -232,7 +238,7 @@ class SeventeenTrackPackageSensor(SensorEntity):
         """Remove entity itself."""
         await self.async_remove(force_remove=True)
 
-        reg = await self.hass.helpers.entity_registry.async_get_registry()
+        reg = er.async_get(self.hass)
         entity_id = reg.async_get_entity_id(
             "sensor",
             "seventeentrack",
@@ -254,8 +260,8 @@ class SeventeenTrackPackageSensor(SensorEntity):
         title = NOTIFICATION_DELIVERED_TITLE.format(identification)
         notification_id = NOTIFICATION_DELIVERED_TITLE.format(self._tracking_number)
 
-        self.hass.components.persistent_notification.create(
-            message, title=title, notification_id=notification_id
+        persistent_notification.create(
+            self.hass, message, title=title, notification_id=notification_id
         )
 
 

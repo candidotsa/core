@@ -13,6 +13,7 @@ import voluptuous as vol
 from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity
 from homeassistant.const import ATTR_ATTRIBUTION, TIME_MINUTES
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
@@ -22,7 +23,7 @@ _LOGGER = logging.getLogger(__name__)
 ATTRIBUTION = "Powered by ViaggiaTreno Data"
 
 VIAGGIATRENO_ENDPOINT = (
-    "http://www.viaggiatreno.it/viaggiatrenonew/"
+    "http://www.viaggiatreno.it/infomobilita/"
     "resteasy/viaggiatreno/andamentoTreno/"
     "{station_id}/{train_id}/{timestamp}"
 )
@@ -79,7 +80,7 @@ async def async_setup_platform(
 async def async_http_request(hass, uri):
     """Perform actual request."""
     try:
-        session = hass.helpers.aiohttp_client.async_get_clientsession(hass)
+        session = async_get_clientsession(hass)
         async with async_timeout.timeout(REQUEST_TIMEOUT):
             req = await session.get(uri)
         if req.status != HTTPStatus.OK:

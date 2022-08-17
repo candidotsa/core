@@ -6,7 +6,9 @@ from http import HTTPStatus
 from ipaddress import ip_address
 import logging
 import secrets
+from typing import TYPE_CHECKING, Any
 
+from aiohttp import StreamReader
 from aiohttp.web import Request, Response
 import voluptuous as vol
 
@@ -17,7 +19,7 @@ from homeassistant.helpers.network import get_url
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.loader import bind_hass
 from homeassistant.util import network
-from homeassistant.util.aiohttp import MockRequest, serialize_response
+from homeassistant.util.aiohttp import MockRequest, MockStreamReader, serialize_response
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -82,29 +84,37 @@ def async_generate_path(webhook_id: str) -> str:
 
 
 @bind_hass
-async def async_handle_webhook(hass, webhook_id, request):
+async def async_handle_webhook(
+    hass: HomeAssistant, webhook_id: str, request: Request | MockRequest
+) -> Response:
     """Handle a webhook."""
-    handlers = hass.data.setdefault(DOMAIN, {})
+    handlers: dict[str, dict[str, Any]] = hass.data.setdefault(DOMAIN, {})
 
     # Always respond successfully to not give away if a hook exists or not.
     if (webhook := handlers.get(webhook_id)) is None:
+        content_stream: StreamReader | MockStreamReader
         if isinstance(request, MockRequest):
             received_from = request.mock_source
+            content_stream = request.content
         else:
             received_from = request.remote
+            content_stream = request.content
 
-        _LOGGER.warning(
+        _LOGGER.info(
             "Received message for unregistered webhook %s from %s",
             webhook_id,
             received_from,
         )
         # Look at content to provide some context for received webhook
         # Limit to 64 chars to avoid flooding the log
-        content = await request.content.read(64)
+        content = await content_stream.read(64)
         _LOGGER.debug("%s", content)
         return Response(status=HTTPStatus.OK)
 
     if webhook["local_only"]:
+        if TYPE_CHECKING:
+            assert isinstance(request, Request)
+            assert request.remote is not None
         try:
             remote = ip_address(request.remote)
         except ValueError:
@@ -128,8 +138,8 @@ async def async_handle_webhook(hass, webhook_id, request):
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Initialize the webhook component."""
     hass.http.register_view(WebhookView)
-    hass.components.websocket_api.async_register_command(websocket_list)
-    hass.components.websocket_api.async_register_command(websocket_handle)
+    websocket_api.async_register_command(hass, websocket_list)
+    websocket_api.async_register_command(hass, websocket_handle)
     return True
 
 
@@ -141,9 +151,8 @@ class WebhookView(HomeAssistantView):
     requires_auth = False
     cors_allowed = True
 
-    async def _handle(self, request: Request, webhook_id):
+    async def _handle(self, request: Request, webhook_id: str) -> Response:
         """Handle webhook call."""
-        # pylint: disable=no-self-use
         _LOGGER.debug("Handling webhook %s payload for %s", request.method, webhook_id)
         hass = request.app["hass"]
         return await async_handle_webhook(hass, webhook_id, request)

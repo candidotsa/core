@@ -1,16 +1,14 @@
 """Support for MySensors lights."""
 from __future__ import annotations
 
-from typing import Any, Tuple, cast
+from typing import Any, cast
 
 from homeassistant.components import mysensors
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
     ATTR_RGB_COLOR,
     ATTR_RGBW_COLOR,
-    COLOR_MODE_BRIGHTNESS,
-    COLOR_MODE_RGB,
-    COLOR_MODE_RGBW,
+    ColorMode,
     LightEntity,
 )
 from homeassistant.config_entries import ConfigEntry
@@ -136,8 +134,8 @@ class MySensorsLight(mysensors.device.MySensorsEntity, LightEntity):
 class MySensorsLightDimmer(MySensorsLight):
     """Dimmer child class to MySensorsLight."""
 
-    _attr_supported_color_modes = {COLOR_MODE_BRIGHTNESS}
-    _attr_color_mode = COLOR_MODE_BRIGHTNESS
+    _attr_supported_color_modes = {ColorMode.BRIGHTNESS}
+    _attr_color_mode = ColorMode.BRIGHTNESS
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the device on."""
@@ -156,8 +154,8 @@ class MySensorsLightDimmer(MySensorsLight):
 class MySensorsLightRGB(MySensorsLight):
     """RGB child class to MySensorsLight."""
 
-    _attr_supported_color_modes = {COLOR_MODE_RGB}
-    _attr_color_mode = COLOR_MODE_RGB
+    _attr_supported_color_modes = {ColorMode.RGB}
+    _attr_color_mode = ColorMode.RGB
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the device on."""
@@ -195,15 +193,15 @@ class MySensorsLightRGB(MySensorsLight):
         """Update the controller with values from RGB child."""
         value = self._values[self.value_type]
         self._attr_rgb_color = cast(
-            Tuple[int, int, int], tuple(rgb_hex_to_rgb_list(value))
+            tuple[int, int, int], tuple(rgb_hex_to_rgb_list(value))
         )
 
 
 class MySensorsLightRGBW(MySensorsLightRGB):
     """RGBW child class to MySensorsLightRGB."""
 
-    _attr_supported_color_modes = {COLOR_MODE_RGBW}
-    _attr_color_mode = COLOR_MODE_RGBW
+    _attr_supported_color_modes = {ColorMode.RGBW}
+    _attr_color_mode = ColorMode.RGBW
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the device on."""
@@ -234,5 +232,5 @@ class MySensorsLightRGBW(MySensorsLightRGB):
         """Update the controller with values from RGBW child."""
         value = self._values[self.value_type]
         self._attr_rgbw_color = cast(
-            Tuple[int, int, int, int], tuple(rgb_hex_to_rgb_list(value))
+            tuple[int, int, int, int], tuple(rgb_hex_to_rgb_list(value))
         )

@@ -8,8 +8,9 @@ from alpha_vantage.foreignexchange import ForeignExchange
 from alpha_vantage.timeseries import TimeSeries
 import voluptuous as vol
 
+from homeassistant.components import persistent_notification
 from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity
-from homeassistant.const import ATTR_ATTRIBUTION, CONF_API_KEY, CONF_CURRENCY, CONF_NAME
+from homeassistant.const import CONF_API_KEY, CONF_CURRENCY, CONF_NAME
 from homeassistant.core import HomeAssistant
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -79,7 +80,7 @@ def setup_platform(
 
     if not symbols and not conversions:
         msg = "No symbols or currencies configured."
-        hass.components.persistent_notification.create(msg, "Sensor alpha_vantage")
+        persistent_notification.create(hass, msg, "Sensor alpha_vantage")
         _LOGGER.warning(msg)
         return
 
@@ -117,6 +118,8 @@ def setup_platform(
 class AlphaVantageSensor(SensorEntity):
     """Representation of a Alpha Vantage sensor."""
 
+    _attr_attribution = ATTRIBUTION
+
     def __init__(self, timeseries, symbol):
         """Initialize the sensor."""
         self._symbol = symbol[CONF_SYMBOL]
@@ -130,15 +133,17 @@ class AlphaVantageSensor(SensorEntity):
         _LOGGER.debug("Requesting new data for symbol %s", self._symbol)
         all_values, _ = self._timeseries.get_intraday(self._symbol)
         values = next(iter(all_values.values()))
-        self._attr_native_value = values["1. open"]
+        if isinstance(values, dict) and "1. open" in values:
+            self._attr_native_value = values["1. open"]
+        else:
+            self._attr_native_value = None
         self._attr_extra_state_attributes = (
             {
-                ATTR_ATTRIBUTION: ATTRIBUTION,
                 ATTR_CLOSE: values["4. close"],
                 ATTR_HIGH: values["2. high"],
                 ATTR_LOW: values["3. low"],
             }
-            if values is not None
+            if isinstance(values, dict)
             else None
         )
         _LOGGER.debug("Received new values for symbol %s", self._symbol)
@@ -146,6 +151,8 @@ class AlphaVantageSensor(SensorEntity):
 
 class AlphaVantageForeignExchange(SensorEntity):
     """Sensor for foreign exchange rates."""
+
+    _attr_attribution = ATTRIBUTION
 
     def __init__(self, foreign_exchange, config):
         """Initialize the sensor."""
@@ -170,10 +177,12 @@ class AlphaVantageForeignExchange(SensorEntity):
         values, _ = self._foreign_exchange.get_currency_exchange_rate(
             from_currency=self._from_currency, to_currency=self._to_currency
         )
-        self._attr_native_value = round(float(values["5. Exchange Rate"]), 4)
+        if isinstance(values, dict) and "5. Exchange Rate" in values:
+            self._attr_native_value = round(float(values["5. Exchange Rate"]), 4)
+        else:
+            self._attr_native_value = None
         self._attr_extra_state_attributes = (
             {
-                ATTR_ATTRIBUTION: ATTRIBUTION,
                 CONF_FROM: self._from_currency,
                 CONF_TO: self._to_currency,
             }

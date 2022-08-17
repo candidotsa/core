@@ -9,7 +9,9 @@ import voluptuous as vol
 
 from homeassistant.const import CONF_DOMAIN, CONF_PASSWORD, CONF_TIMEOUT, CONF_USERNAME
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.typing import ConfigType
 
 _LOGGER = logging.getLogger(__name__)
@@ -42,7 +44,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     password = config[DOMAIN].get(CONF_PASSWORD)
     timeout = config[DOMAIN].get(CONF_TIMEOUT)
 
-    session = hass.helpers.aiohttp_client.async_get_clientsession()
+    session = async_get_clientsession(hass)
 
     result = await _update_google_domains(
         hass, session, domain, user, password, timeout
@@ -55,7 +57,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         """Update the Google Domains entry."""
         await _update_google_domains(hass, session, domain, user, password, timeout)
 
-    hass.helpers.event.async_track_time_interval(update_domain_interval, INTERVAL)
+    async_track_time_interval(hass, update_domain_interval, INTERVAL)
 
     return True
 
